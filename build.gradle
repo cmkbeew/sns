@@ -2,6 +2,8 @@ plugins {
 	id 'java'
 	id 'org.springframework.boot' version '2.7.6'
 	id 'io.spring.dependency-management' version '1.1.4'
+	// front-end 파일 실행을 위해 추가
+	id "com.github.node-gradle.node" version "3.3.0"
 }
 
 group = 'com.fastcampus'
@@ -23,7 +25,7 @@ repositories {
 
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-	implementation 'org.springframework.boot:spring-boot-starter-security'
+//	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	compileOnly 'org.projectlombok:lombok'
 	runtimeOnly 'org.postgresql:postgresql'
@@ -39,3 +41,30 @@ tasks.named('bootBuildImage') {
 tasks.named('test') {
 	useJUnitPlatform()
 }
+
+// node 설정
+node {
+	nodeModulesDir = file("$projectDir/front-end")
+	version = '18.3.0'
+	download = true
+}
+// front-end 코드가 react로 되어있음 => react 빌드 시 사용하는 툴
+task npmBuild(type: NpmTask) {
+	args = ['run', "build"]
+}
+// build 시 front-end 부분이 main/static 에서 확인하므로 복사해주는 작업
+task copyFrontEnd(type: Copy) {
+	from "$projectDir/front-end/static"
+	into 'build/resources/main/static/.'
+}
+// clean 할 때 같이 삭제
+task cleanFrontEnd(type: Delete) {
+	delete "$projectDir/front-end/static", "$projectDir/front-end/node_modules"
+}
+// a.dependsOn b => a가 실행되기 전에 b가 실행되어야한다.
+npmBuild.dependsOn npmInstall
+copyFrontEnd.dependsOn npmBuild
+compileJava.dependsOn copyFrontEnd
+
+// clean하면 cleanFrontEnd도 clean해준다
+clean.dependsOn cleanFrontEnd
